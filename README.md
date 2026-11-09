@@ -1,1 +1,38 @@
-# school-cafeteria
+# 안암 한 끼
+고려대학교 안암학사 식단을 실제로 크롤링하는 웹앱. Next.js App Router · React · Cheerio · Vercel Node.js Functions.
+
+## 실행
+Node.js 22 이상. `npm ci`, `npm run dev`. 테스트 `npm test`, 프로덕션 빌드 `npm run build`, 실행 `npm start`.
+
+## 실제 외부 데이터
+기본 수집 URL: https://www.korea.ac.kr/ko/505/subview.do (고려대학교 안암학사 식당)
+
+브라우저 → GET `/api/menu` → robots.txt 확인 → HTML 다운로드 → Cheerio로 rowspan 식단표 파싱 → 날짜/끼니/메뉴 JSON → 화면 표시. API 키는 필요하지 않습니다. 30분 캐시, 12초 제한, 최대 5페이지 탐색, 요청 간 1초 간격. 공식 학교 도메인 두 곳만 허용합니다. 환경 프록시는 undici EnvHttpProxyAgent로 지원하며 TLS 검증을 유지합니다.
+
+2026-11-09 개발 환경에서 공식 페이지의 11/9~11/13 조·중·석식 **15개 식단 실제 수집 확인**. 주말의 ‘등록된 식단내용 없음’과 가격은 음식 목록에서 제외합니다. 이미지 형식의 별도 안암학사 게시판은 원본 이미지만 표시하는 대체 수집기도 지원합니다.
+
+`.env.local`의 `MENU_SOURCE_URL`로 수집 URL 변경 가능. 기본값만으로 작동합니다. 운영 전 공식 사이트 이용조건을 확인하고 구조 변경 시 파서를 점검하세요. 수집 실패는 오류로 표시하며 가짜/샘플 식단으로 대체하지 않습니다.
+
+## 기능과 범위
+- 날짜별 조·중·석식, 수집 시간 및 원본 링크
+- 관심 메뉴 부분 문자열 및 음식 종류 매칭, 기기 localStorage 설정 보존
+- 앱을 열어 식단을 불러왔을 때 브라우저 Notification (허용 필요), 메뉴별 중복 방지
+- 앱 내 관심 메뉴 목록. 앱 종료 중 백그라운드 푸시/예약 알림 및 계정 동기화는 미지원
+- 메뉴명 규칙으로 추정한 칼로리 범위: 일반적인 1인분 가정 ±20%, 미분류 제외. 대안 메뉴(or)는 합산하지 않으며 추정 불가 표시. 공식 영양 데이터/의학적 권고가 아닙니다.
+- 채소·단백질·곡류를 이용한 일반적인 식사 구성 안내
+
+## 검증
+`npm test`는 표 파싱, 날짜 유지(rowspan), 빈 식단 제외, 매칭, 칼로리 및 출처 제한을 검증합니다.
+`node tests/browser.mjs`는 실행 중인 앱에서 오류 화면, 설정 보존, fixture 매칭, 모바일 화면 폭을 검증합니다. `/usr/bin/chromium` 필요. 모의 데이터 테스트와 실제 수집 검증은 구분합니다.
+
+## Vercel 배포
+1. 변경을 GitHub에 커밋/푸시합니다.
+2. Vercel의 Add New → Project에서 `sera1024/school-cafeteria`를 Import합니다.
+3. Framework Preset: Next.js, Root Directory: 저장소 루트, Build Command: `npm run build`.
+4. 추가 환경변수 없이 기본 공식 URL로 동작합니다. 변경하려면 `MENU_SOURCE_URL`을 등록합니다.
+5. Deploy 후 배포 URL의 `/api/menu`가 200이고 메뉴가 있는지, 화면의 날짜·식단이 공식 원본과 일치하는지 확인합니다.
+
+인증이 연결된 CLI에서는 `npx vercel`로 프로젝트 연결/미리보기, `npx vercel --prod`로 운영 배포합니다. 토큰은 채팅이나 소스에 넣지 마세요.
+
+## 다른 주 조회
+화면의 이전 주·다음 주·날짜 선택으로 다른 기간을 조회할 수 있습니다. `/api/menu?date=2026-10-26`처럼 날짜를 전달하면 해당 월요일부터 일요일까지를 조회합니다. 공식 주간 페이지 `/diet/ko/10/view.do?monday=YYYY.MM.DD&week=`를 크롤링하며 주별로 캐시합니다. 2026-10-26, 11-02, 11-09 주의 식단 각 15개 수집을 확인했습니다. 미래 주라도 아직 게시되지 않은 식단은 빈 목록으로 반환하며 임의로 생성하지 않습니다.
